@@ -70,7 +70,7 @@
 </head>
 <body>
 	<div class="container">
-		<h1>Upload Media</h1>
+		<h1>Otpremi medija</h1>
 
 		<input
 			id="fileInput"
@@ -80,7 +80,7 @@
 			multiple
 		/>
 
-		<button id="uploadButton" type="button">Upload media</button>
+		<button id="uploadButton" type="button">Otpremi medija</button>
 
 		<div class="message" id="message"></div>
 
@@ -117,7 +117,7 @@
 				<ul>${names}</ul>
 			`;
 
-			message.textContent = "Slanje fajlova...";
+			message.textContent = "Otpremanje fajlova...";
 
 			try {
 				const formData = new FormData();
@@ -134,14 +134,14 @@
 				});
 
 				if (!response.ok) {
-					throw new Error("Upload failed");
+					throw new Error("Otpremanje nije uspelo");
 				}
 
-				message.textContent = "Fajlovi su uspesno poslati.";
+				message.textContent = "Fajlovi su uspešno otpremljeni.";
 				fileInput.value = "";
 			} catch (error) {
 				console.error(error);
-				message.textContent = "Doslo je do greske pri upload-u.";
+				message.textContent = "Došlo je do greške pri otpremanju.";
 			}
 		});
 	</script>
