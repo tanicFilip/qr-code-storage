@@ -1,0 +1,11 @@
+# Node.js dependencies
+/backend/node_modules/
+
+# Uploaded media
+/backend/uploads/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.log
+.env
