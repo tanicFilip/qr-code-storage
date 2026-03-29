@@ -177,8 +177,8 @@
 					message.textContent = `Fajlovi su uspešno otpremljeni. GUID: ${result.guid}`;
 					fileInput.value = "";
 				} catch (error) {
-					console.error(error);
-					message.textContent = "Došlo je do greške pri otpremanju.";
+					console.error("Upload error:", error);
+					message.innerHTML = `<span style="color:red;">Došlo je do greške pri otpremanju.<br><small>${error.message || error}</small></span>`;
 				}
 			});
 		</script>
