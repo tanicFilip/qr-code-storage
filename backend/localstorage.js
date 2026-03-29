@@ -8,84 +8,49 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-const storage = {
-  destination: async function (req, file, cb) {
-    console.log(`[multer] destination() called for file: ${file.originalname}`);
-    let guid;
-    if (req.body && req.body.userid) {
-      try {
-        guid = await getOrCreateGuid(req.body.userid);
-      } catch (e) {
-        console.error(`[multer] Error in getOrCreateGuid:`, e);
-        guid = randomUUID();
-      }
-    } else {
+/**
+ * Save uploaded files to local disk.
+ * @param {object} options
+ * @param {Array} options.files - Array of { name, type, size, data: number[] }
+ * @param {string|null} options.userid
+ * @returns {Promise<{ guid: string, files: string[] }>}
+ */
+async function saveFiles({ files, userid }) {
+  let guid;
+  if (userid) {
+    try {
+      guid = await getOrCreateGuid(userid);
+    } catch (e) {
+      console.error(`[localstorage] Error in getOrCreateGuid:`, e);
       guid = randomUUID();
     }
-    req._uploadUUID = guid;
-    req._uploadSubdir = path.join(uploadDir, guid);
-    if (!fs.existsSync(req._uploadSubdir)) {
-      fs.mkdirSync(req._uploadSubdir, { recursive: true });
-      console.log(`[multer] Created upload subdir: ${req._uploadSubdir}`);
-    } else {
-      console.log(`[multer] Using existing upload subdir: ${req._uploadSubdir}`);
-    }
-    cb(null, req._uploadSubdir);
-  },
-  filename: function (req, file, cb) {
-    console.log(`[multer] filename() called for file: ${file.originalname}`);
-    cb(null, file.originalname);
+  } else {
+    guid = randomUUID();
   }
-};
 
-function asyncMulterStorage(storage) {
-  return {
-    _handleFile: function (req, file, cb) {
-      (async () => {
-        try {
-          const destination = await new Promise((resolve, reject) => {
-            const maybePromise = storage.destination(req, file, (err, dest) => {
-              if (err) return reject(err);
-              resolve(dest);
-            });
-            if (maybePromise && typeof maybePromise.then === 'function') {
-              maybePromise.then(resolve).catch(reject);
-            }
-          });
+  const uploadSubdir = path.join(uploadDir, guid);
+  if (!fs.existsSync(uploadSubdir)) {
+    fs.mkdirSync(uploadSubdir, { recursive: true });
+    console.log(`[localstorage] Created upload subdir: ${uploadSubdir}`);
+  } else {
+    console.log(`[localstorage] Using existing upload subdir: ${uploadSubdir}`);
+  }
 
-          const filename = await new Promise((resolve, reject) => {
-            const maybePromise = storage.filename(req, file, (err, name) => {
-              if (err) return reject(err);
-              resolve(name);
-            });
-            if (maybePromise && typeof maybePromise.then === 'function') {
-              maybePromise.then(resolve).catch(reject);
-            }
-          });
-
-          const finalPath = path.join(destination, filename);
-          const outStream = fs.createWriteStream(finalPath);
-          file.stream.pipe(outStream);
-          outStream.on('error', (e) => {
-            cb(e);
-          });
-          outStream.on('finish', function () {
-            cb(null, {
-              destination,
-              filename,
-              path: finalPath,
-              size: outStream.bytesWritten
-            });
-          });
-        } catch (err) {
-          cb(err);
-        }
-      })();
-    },
-    _removeFile: function (req, file, cb) {
-      fs.unlink(file.path, cb);
+  const savedFiles = [];
+  for (const file of files) {
+    if (!file.name || !file.data) continue;
+    const filePath = path.join(uploadSubdir, file.name);
+    try {
+      const buffer = Buffer.from(file.data);
+      fs.writeFileSync(filePath, buffer);
+      savedFiles.push(file.name);
+      console.log(`[localstorage] Saved file: ${filePath}`);
+    } catch (e) {
+      console.error(`[localstorage] Error saving file: ${filePath}`, e);
     }
-  };
+  }
+
+  return { guid, files: savedFiles };
 }
 
-module.exports = { storage, asyncMulterStorage };
+module.exports = { saveFiles };

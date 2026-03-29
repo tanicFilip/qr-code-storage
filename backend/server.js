@@ -1,7 +1,5 @@
 require('dotenv').config({ debug: true });
 const express = require('express');
-const multer = require('multer');
-const { storage, asyncMulterStorage } = require('./localstorage');
 
 const app = express();
 
@@ -17,8 +15,16 @@ app.use((req, res, next) => {
 });
 const PORT = 3000;
 
+// Storage backend routing: set STORAGE_BACKEND=s3 or STORAGE_BACKEND=local in .env
+function getStorageBackend() {
+  const backend = (process.env.STORAGE_BACKEND || 'local').toLowerCase();
+  if (backend === 's3') {
+    return require('./s3');
+  }
+  return require('./localstorage');
+}
 
-app.use(express.json({ limit: '100mb' })); // For large blobs
+app.use(express.json({ limit: '100mb' }));
 
 app.post('/upload', async (req, res) => {
   console.log(`[POST /upload] Received upload request.`);
@@ -28,56 +34,21 @@ app.post('/upload', async (req, res) => {
     return res.status(400).json({ message: 'No files uploaded.' });
   }
 
-  // Use the same logic as storage.destination to get the guid and subdir
-  let guid;
-  const { getOrCreateGuid } = require('./upstash');
-  const path = require('path');
-  const fs = require('fs');
-  const { randomUUID } = require('crypto');
-  const uploadDir = path.join(__dirname, 'uploads');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+  try {
+    const storage = getStorageBackend();
+    const result = await storage.saveFiles({ files, userid });
+    res.json({
+      message: 'Files uploaded successfully.',
+      guid: result.guid,
+      files: result.files
+    });
+  } catch (err) {
+    console.error(`[POST /upload] Error:`, err);
+    res.status(500).json({ message: 'Upload failed.' });
   }
-  if (userid) {
-    try {
-      guid = await getOrCreateGuid(userid);
-    } catch (e) {
-      console.error(`[multer] Error in getOrCreateGuid:`, e);
-      guid = randomUUID();
-    }
-  } else {
-    guid = randomUUID();
-  }
-  const uploadSubdir = path.join(uploadDir, guid);
-  if (!fs.existsSync(uploadSubdir)) {
-    fs.mkdirSync(uploadSubdir, { recursive: true });
-    console.log(`[multer] Created upload subdir: ${uploadSubdir}`);
-  } else {
-    console.log(`[multer] Using existing upload subdir: ${uploadSubdir}`);
-  }
-
-  // Write each file
-  const savedFiles = [];
-  for (const file of files) {
-    if (!file.name || !file.data) continue;
-    const filePath = path.join(uploadSubdir, file.name);
-    try {
-      const buffer = Buffer.from(file.data);
-      fs.writeFileSync(filePath, buffer);
-      savedFiles.push(file.name);
-      console.log(`[multer] Saved file: ${filePath}`);
-    } catch (e) {
-      console.error(`[multer] Error saving file: ${filePath}`, e);
-    }
-  }
-
-  res.json({
-    message: 'Files uploaded successfully.',
-    guid,
-    files: savedFiles
-  });
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Storage backend: ${process.env.STORAGE_BACKEND || 'local'}`);
 });
