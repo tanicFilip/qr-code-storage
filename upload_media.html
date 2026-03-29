@@ -142,35 +142,24 @@
 				message.textContent = "Otpremanje fajlova...";
 
 				try {
-					// Read all files as ArrayBuffers
-					const fileObjs = await Promise.all(Array.from(files).map(async file => {
-						const arrayBuffer = await file.arrayBuffer();
-						return {
-							name: file.name,
-							type: file.type,
-							size: file.size,
-							data: Array.from(new Uint8Array(arrayBuffer))
-						};
-					}));
-
-					const payload = {
-						files: fileObjs,
-						source: "wedding-page",
-						userid: userId || null
-					};
-
-					const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+					const formData = new FormData();
+					formData.append("source", "wedding-page");
+					formData.append("userid", userId || "");
+					for (const file of files) {
+						formData.append("files", file, file.name);
+					}
 
 					const response = await fetch(`${API_BASE_URL}/upload`, {
 						method: "POST",
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: blob
+						body: formData
 					});
 
 					if (!response.ok) {
-						throw new Error("Otpremanje nije uspelo");
+						let errorDetail = '';
+						try {
+							errorDetail = await response.text();
+						} catch (_) {}
+						throw new Error(`${response.status} ${response.statusText}: ${errorDetail}`);
 					}
 
 					const result = await response.json();
