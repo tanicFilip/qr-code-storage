@@ -95,7 +95,11 @@
 		</div>
 	</div>
 
+		<script src="config.js"></script>
 		<script>
+			// Backend API base URL — loaded from config.js, fallback to localhost
+			const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
+
 			// Helper to get query param
 			function getQueryParam(name) {
 				const urlParams = new URLSearchParams(window.location.search);
@@ -157,7 +161,7 @@
 
 					const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
 
-					const response = await fetch("http://localhost:3000/upload", {
+					const response = await fetch(`${API_BASE_URL}/upload`, {
 						method: "POST",
 						headers: {
 							'Content-Type': 'application/json'
