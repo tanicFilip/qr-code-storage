@@ -71,9 +71,18 @@
   <div class="container">
     <h1>Dobro došli na naše venčanje</h1>
 
-    <a href="upload_media.html" style="text-decoration: none;">
-      <button type="button">Otpremi medija</button>
-    </a>
+    <div style="margin-bottom: 18px;">
+      <label for="userName" style="font-size:1rem;">Vaše ime?</label><br />
+      <input id="userName" type="text" style="margin-top:8px;padding:10px;width:90%;max-width:260px;border-radius:8px;border:1px solid #ccc;font-size:1rem;" placeholder="Unesite ime" />
+    </div>
+    <button id="goToUpload" type="button">Otpremi medija</button>
   </div>
+  <script>
+    document.getElementById('goToUpload').addEventListener('click', function() {
+      const name = document.getElementById('userName').value.trim();
+      const url = name ? `upload_media.html?userid=${encodeURIComponent(name)}` : 'upload_media.html';
+      window.location.href = url;
+    });
+  </script>
 </body>
 </html>

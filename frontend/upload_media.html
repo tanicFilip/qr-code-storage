@@ -70,7 +70,9 @@
 </head>
 <body>
 	<div class="container">
+
 		<h1>Otpremi medija</h1>
+		<div id="userNameDisplay" style="margin-bottom: 12px; font-size: 1.1rem;"></div>
 
 		<input
 			id="fileInput"
@@ -79,6 +81,7 @@
 			accept="image/*,video/*"
 			multiple
 		/>
+		<input type="hidden" id="userIdHidden" />
 
 		<button id="uploadButton" type="button">Otpremi medija</button>
 
@@ -92,58 +95,88 @@
 		</div>
 	</div>
 
-	<script>
-		const uploadButton = document.getElementById("uploadButton");
-		const fileInput = document.getElementById("fileInput");
-		const message = document.getElementById("message");
-		const fileList = document.getElementById("fileList");
-
-		uploadButton.addEventListener("click", () => {
-			fileInput.click();
-		});
-
-		fileInput.addEventListener("change", async () => {
-			const files = fileInput.files;
-
-			if (!files || files.length === 0) {
-				message.textContent = "Nijedan fajl nije izabran.";
-				fileList.innerHTML = "";
-				return;
+		<script>
+			// Helper to get query param
+			function getQueryParam(name) {
+				const urlParams = new URLSearchParams(window.location.search);
+				return urlParams.get(name) || '';
 			}
 
-			const names = Array.from(files).map(file => `<li>${file.name}</li>`).join("");
-			fileList.innerHTML = `
-				<strong>Izabrani fajlovi:</strong>
-				<ul>${names}</ul>
-			`;
+			const uploadButton = document.getElementById("uploadButton");
+			const fileInput = document.getElementById("fileInput");
+			const message = document.getElementById("message");
+			const fileList = document.getElementById("fileList");
+			const userIdHidden = document.getElementById("userIdHidden");
+			const userNameDisplay = document.getElementById("userNameDisplay");
 
-			message.textContent = "Otpremanje fajlova...";
-
-			try {
-				const formData = new FormData();
-
-				for (const file of files) {
-					formData.append("files", file);
-				}
-
-				formData.append("source", "wedding-page");
-
-				const response = await fetch("http://localhost:3000/upload", {
-					method: "POST",
-					body: formData
-				});
-
-				if (!response.ok) {
-					throw new Error("Otpremanje nije uspelo");
-				}
-
-				message.textContent = "Fajlovi su uspešno otpremljeni.";
-				fileInput.value = "";
-			} catch (error) {
-				console.error(error);
-				message.textContent = "Došlo je do greške pri otpremanju.";
+			// Get user name from query param and display it
+			const userId = getQueryParam('userid');
+			if (userId) {
+				userNameDisplay.textContent = `Korisnik: ${userId}`;
+				userIdHidden.value = userId;
 			}
-		});
-	</script>
+
+			uploadButton.addEventListener("click", () => {
+				fileInput.click();
+			});
+
+			fileInput.addEventListener("change", async () => {
+				const files = fileInput.files;
+
+				if (!files || files.length === 0) {
+					message.textContent = "Nijedan fajl nije izabran.";
+					fileList.innerHTML = "";
+					return;
+				}
+
+				const names = Array.from(files).map(file => `<li>${file.name}</li>`).join("");
+				fileList.innerHTML = `
+					<strong>Izabrani fajlovi:</strong>
+					<ul>${names}</ul>
+				`;
+
+				message.textContent = "Otpremanje fajlova...";
+
+				try {
+					// Read all files as ArrayBuffers
+					const fileObjs = await Promise.all(Array.from(files).map(async file => {
+						const arrayBuffer = await file.arrayBuffer();
+						return {
+							name: file.name,
+							type: file.type,
+							size: file.size,
+							data: Array.from(new Uint8Array(arrayBuffer))
+						};
+					}));
+
+					const payload = {
+						files: fileObjs,
+						source: "wedding-page",
+						userid: userId || null
+					};
+
+					const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+
+					const response = await fetch("http://localhost:3000/upload", {
+						method: "POST",
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: blob
+					});
+
+					if (!response.ok) {
+						throw new Error("Otpremanje nije uspelo");
+					}
+
+					const result = await response.json();
+					message.textContent = `Fajlovi su uspešno otpremljeni. GUID: ${result.guid}`;
+					fileInput.value = "";
+				} catch (error) {
+					console.error(error);
+					message.textContent = "Došlo je do greške pri otpremanju.";
+				}
+			});
+		</script>
 </body>
 </html>
